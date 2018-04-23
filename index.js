@@ -267,16 +267,23 @@ async function listenerGmail() {
   //   REDIRECT_URL
   // );
 
+
   let client = await google.auth.getClient({
     keyFile: './credentials/app-pruebas-210a587e9289.json',
-    scopes: 'https://www.googleapis.com/auth/gmail.readonly'
+    scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/gmail.modify',
+     'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.metadata']
   });
+
   
   // client.authorize(function (err, result) {
+  //   if(err){
+  //     console.log('peto aqui');
+  //   }    
   //   oauth2Client.setCredentials({
   //     access_token: result.access_token
   //   });
   // });
+
 
   const gmail = google.gmail({
     version: 'v1',
@@ -288,9 +295,9 @@ async function listenerGmail() {
     resource: {
       // Replace with `projects/${PROJECT_ID}/topics/${TOPIC_NAME}`
       topicName: 'projects/app-pruebas-972aa/topics/myTopic',
+      labelIds: ['INBOX'],
     }
   });
-  console.log(res);
   return res;
 }
 // });
