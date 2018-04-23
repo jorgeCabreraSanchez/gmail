@@ -1,0 +1,17 @@
+{
+  "name": "gmail",
+  "version": "1.0.0",
+  "description": "\"Subscribe gmail inbox and send to firebase\"",
+  "main": "index.js",
+  "scripts": {
+    "start": "node ."
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google-cloud/pubsub": "^0.18.0",
+    "google-auth-library": "^1.4.0",
+    "googleapis": "^29.0.0",
+    "node-gmail-api": "^0.6.1"
+  }
+}
