@@ -2,8 +2,9 @@
 const fs = require('fs');
 var readline = require('readline');
 const { google } = require('googleapis');
-const { OAuth2Client } = require('google-auth-library');
+const gal = require('google-auth-library');
 const path = require('path');
+const { GoogleAuth, JWT, OAuth2Client } = require('google-auth-library')
 
 
 
@@ -215,69 +216,45 @@ const CLIENT_SECRET = clientOAuth2File.client_secret;
 const REDIRECT_URL = clientOAuth2File.redirect_uris[0];
 
 
-// var client;
+const service_account = require('./credentials/app-pruebas-210a587e9289.json');
 
 
 // var auth = new googleAuth();
 // var oauth2= new auth.OAuth2();
 
-
-// const jwt = new google.auth.JWT(
-//   SERVICE_ACCOUNT_EMAIL,
-//   'credentials/app-pruebas-210a587e9289.json',
-//   null,
-//   ['https://www.googleapis.com/auth/gmail.readonly']
-// );
-
-// var client;
-// google
-//     .discover('gmail', 'v2')
-//     .execute(function(err, data) {
-//         client = data;
-
-//         jwt.authorize(function(err, result) {
-//             oauth2.setCredentials({
-//                 access_token: result.access_token
-//             });
-
-//             client.gmail.users.watch({
-//               userId: 'appPracticasGnommo@gmail.com',
-//               resource: {
-//                 // Replace with `projects/${PROJECT_ID}/topics/${TOPIC_NAME}`
-//                 topicName: 'projects/app-pruebas-972aa/topics/myTopic',
-//               }
-//             })
-//             .withAuthClient(oauth2)
-//             .execute(function(err, result) {
-//             });
-//         });
-//     });
-// ///////
-
-// jwtClient.authorize((authErr) => {
-//   if (authErr) {
-//     console.log(authErr);
-//     return;
-//   }
 listenerGmail().catch(console.error)
 
 async function listenerGmail() {
-  let oAuth2Client = new OAuth2Client(
-    CLIENT_ID,
-    CLIENT_SECRET,
-    REDIRECT_URL);
+  // var auth = new gal.GoogleAuth();
+  // var oauth2Client = new auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);    
+  // const jwtClient = new gal.JWT({
+  //   email: service_account.client_email,
+  //   key: service_account.private_key,
+  //   scopes: ["https://mail.google.com/"]
+  // });
+  
+  const oAuth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
+  // const oAuth2Client = new gal.OAuth2Client(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
+
+  // const jwtClient = new google.auth.JWT({
+  //   email: service_account.client_email,
+  //   key: service_account.private_key,
+  //   scopes: ["https://mail.google.com/"]
+  // });
+  // 'adm@yourdomain.com' // subject (or sub) <-----------------------
 
 
   let client = await google.auth.getClient({
-    keyFile: path.join(__dirname,'credentials/app-pruebas-210a587e9289.json'),
+    keyFile: path.join(__dirname, 'credentials/app-pruebas-210a587e9289.json'),
     scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/gmail.modify',
       'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.metadata']
   });
 
-  client.authorize(async function (err, result) {
-    oAuth2Client.setCredentials({
-      access_token: result.access_token
-    });
+  client.authorize(async function (err, token) {
+    oAuth2Client.credentials = token;
+    // oAuth2Client.setCredentials({
+    //   access_token: result.access_token
+    // });
 
     // client.authorize(function (err, result) {
     //   if(err){
@@ -293,7 +270,7 @@ async function listenerGmail() {
       version: 'v1',
       auth: oAuth2Client,
     });
-    // 107494508055518923705
+    
     try {
       const res = await gmail.users.watch({
         userId: 'me',
