@@ -2,7 +2,7 @@
 const fs = require('fs');
 var readline = require('readline');
 const { google } = require('googleapis');
-// const googleAuth = require('google-auth-library');
+const { OAuth2Client } = require('google-auth-library');
 const path = require('path');
 
 
@@ -22,7 +22,7 @@ const projectId = 'app-pruebas-972aa';
 
 // Instantiates a client
 const pubsubClient = new PubSub({
-  keyFilename: './credentials/app-pruebas-210a587e9289.json',
+  keyFilename: path.join(__dirname, './credentials/app-pruebas-210a587e9289.json'),
 });
 
 const subscriptionName = 'projects/app-pruebas-972aa/subscriptions/mySubscription';
@@ -220,7 +220,8 @@ const REDIRECT_URL = clientOAuth2File.redirect_uris[0];
 
 // var auth = new googleAuth();
 // var oauth2= new auth.OAuth2();
-// var oauth2 = new google.OAuth2Client(CLIENT_ID, CLIENT_SECRET, 'postmessage');
+
+
 // const jwt = new google.auth.JWT(
 //   SERVICE_ACCOUNT_EMAIL,
 //   'credentials/app-pruebas-210a587e9289.json',
@@ -261,44 +262,56 @@ const REDIRECT_URL = clientOAuth2File.redirect_uris[0];
 listenerGmail().catch(console.error)
 
 async function listenerGmail() {
-  // const oauth2Client = new google.auth.OAuth2(
-  //   CLIENT_ID,
-  //   CLIENT_SECRET,
-  //   REDIRECT_URL
-  // );
+  let oAuth2Client = new OAuth2Client(
+    CLIENT_ID,
+    CLIENT_SECRET,
+    REDIRECT_URL);
 
 
   let client = await google.auth.getClient({
-    keyFile: './credentials/app-pruebas-210a587e9289.json',
+    keyFile: path.join(__dirname,'credentials/app-pruebas-210a587e9289.json'),
     scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/gmail.modify',
-     'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.metadata']
+      'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.metadata']
   });
 
-  
-  // client.authorize(function (err, result) {
-  //   if(err){
-  //     console.log('peto aqui');
-  //   }    
-  //   oauth2Client.setCredentials({
-  //     access_token: result.access_token
-  //   });
-  // });
+  client.authorize(async function (err, result) {
+    oAuth2Client.setCredentials({
+      access_token: result.access_token
+    });
+
+    // client.authorize(function (err, result) {
+    //   if(err){
+    //     console.log('peto aqui');
+    //   }    
+    //   oauth2Client.setCredentials({
+    //     access_token: result.access_token
+    //   });
+    // });
 
 
-  const gmail = google.gmail({
-    version: 'v1',
-    auth: client,
-  });
-  // 107494508055518923705
-  const res = await gmail.users.watch({
-    userId: 'me',
-    resource: {
-      // Replace with `projects/${PROJECT_ID}/topics/${TOPIC_NAME}`
-      topicName: 'projects/app-pruebas-972aa/topics/myTopic',
-      labelIds: ['INBOX'],
+    const gmail = google.gmail({
+      version: 'v1',
+      auth: oAuth2Client,
+    });
+    // 107494508055518923705
+    try {
+      const res = await gmail.users.watch({
+        userId: 'me',
+        resource: {
+          // Replace with `projects/${PROJECT_ID}/topics/${TOPIC_NAME}`
+          topicName: 'projects/app-pruebas-972aa/topics/myTopic',
+          labelIds: ['INBOX'],
+        }
+      });
+      console.log(res);
+      return res;
+    } catch (error) {
+      console.log(error);
+      return error;
     }
+
+
   });
-  return res;
 }
 // });
 
