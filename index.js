@@ -5,16 +5,17 @@ const { google } = require('googleapis');
 const gal = require('google-auth-library');
 const path = require('path');
 const { GoogleAuth, JWT, OAuth2Client } = require('google-auth-library')
+let admin = require('firebase-admin');
+const serviceAccount = require('./credentials/app-pruebas-972aa-firebase-adminsdk-db8la-aceac291ba.json');
 
+// firebase
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: 'https://app-pruebas-972aa.firebaseio.com',
+});
+var db = admin.database();
+var ref = db.ref('Alerts');
 
-
-// subscription gmail
-// Imports the Google Cloud client library
-
-
-// var client = new PubSub.v1.PublisherClient({
-//   // optional auth parameters.
-// });
 
 ///////   START PUB/SUB   ///////////
 const PubSub = require('@google-cloud/pubsub');
@@ -35,15 +36,63 @@ const subscription = pubsubClient.subscription(subscriptionName);
 
 // Create an event handler to handle messages
 let messageCount = 0;
-const messageHandler = message => {
+const messageHandler = message => {+
   console.log(`Received message ${message.id}:`);
   console.log(`\tData: ${message.data}`);
-  console.log(`\tAttributes: ${message.attributes}`);
+  console.log(`\tAttributes:`);
   console.log(message.attributes);
   messageCount += 1;
 
   // "Ack" (acknowledge receipt of) the message
-  message.ack();
+  message.ack();  
+
+  
+  // create alert in db firebase
+  let json = JSON.stringify(message.data);    
+  let bufferOriginal = Buffer.from(JSON.parse(json).data);
+
+  ref.child(message.attributes.Asunto).push({
+    assigned: false,    
+    date: Date.now(),
+    subject: bufferOriginal.toString('utf8')
+  });
+  
+
+  
+   // The topic name can be optionally prefixed with "/topics/".
+   var topic = `/topics/${message.attributes.Asunto}`;
+
+   // See the "Defining the message payload" section below for details
+   // on how to define a message payload.
+   var payload = {
+     notification: {
+       title: "Se requiere de un médico",
+       body: `${message.data}`,
+       color: 'blue',
+       tag:`${message.data}`,
+       click_action: 'click_action',
+     },
+     data:{
+       priority: '10'
+     }
+   };
+
+   var options = {
+    priority: 'high',
+    timeToLive: 1,
+    collapseKey: `${message.data}`,        
+   }
+ 
+   // Send a message to devices subscribed to the provided topic.
+   admin.messaging().sendToTopic(topic, payload, options)
+   .then(function(response) {
+     // See the MessagingTopicResponse reference documentation for the
+     // contents of response.
+     console.log("Successfully sent message:", response);
+   })
+   .catch(function(error) {
+     console.log("Error sending message:", error);
+   });
 };
 
 // Create an event handler to handle errors
@@ -203,93 +252,67 @@ console.log('Escuchando mensajes gmail');
 //   SERVICE_ACCOUNT_EMAIL = contentJson.client_email;
 // });
 
-
-
-const clientOAuth2File = require('./credentials/client_secret_271450768634-v2prf1e6uuklsdf10ec2m5nsrg09lrbe.apps.googleusercontent.com.json').installed;
-
 // Authorize a client with the loaded credentials, then call the
 // Gmail API.
 // const contentJson = JSON.parse(content);  
+
+const clientOAuth2File = require('./credentials/client_secret_271450768634-v2prf1e6uuklsdf10ec2m5nsrg09lrbe.apps.googleusercontent.com.json').installed;
 
 const CLIENT_ID = clientOAuth2File.client_id;
 const CLIENT_SECRET = clientOAuth2File.client_secret;
 const REDIRECT_URL = clientOAuth2File.redirect_uris[0];
 
-
-const service_account = require('./credentials/app-pruebas-210a587e9289.json');
-
-
 // var auth = new googleAuth();
 // var oauth2= new auth.OAuth2();
 
-listenerGmail().catch(console.error)
+listenerGmail()
 
 async function listenerGmail() {
   // var auth = new gal.GoogleAuth();
-  // var oauth2Client = new auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);    
-  // const jwtClient = new gal.JWT({
-  //   email: service_account.client_email,
-  //   key: service_account.private_key,
-  //   scopes: ["https://mail.google.com/"]
-  // });
   
   const oAuth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
-  // const oAuth2Client = new gal.OAuth2Client(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
-
-  // const jwtClient = new google.auth.JWT({
-  //   email: service_account.client_email,
-  //   key: service_account.private_key,
-  //   scopes: ["https://mail.google.com/"]
-  // });
-  // 'adm@yourdomain.com' // subject (or sub) <-----------------------
-
-
-  let client = await google.auth.getClient({
-    keyFile: path.join(__dirname, 'credentials/app-pruebas-210a587e9289.json'),
-    scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/gmail.modify',
-      'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.metadata']
-  });
-
-  client.authorize(async function (err, token) {
-    oAuth2Client.credentials = token;
-    // oAuth2Client.setCredentials({
-    //   access_token: result.access_token
-    // });
-
-    // client.authorize(function (err, result) {
-    //   if(err){
-    //     console.log('peto aqui');
-    //   }    
-    //   oauth2Client.setCredentials({
-    //     access_token: result.access_token
-    //   });
-    // });
-
-
-    const gmail = google.gmail({
-      version: 'v1',
-      auth: oAuth2Client,
+  let client;
+  try{
+    client = await google.auth.getClient({      
+      keyFile: path.join(__dirname, 'credentials/app-pruebas-210a587e9289.json'),
+      scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/gmail.modify',
+               'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.metadata']
     });
-    
-    try {
-      const res = await gmail.users.watch({
-        userId: 'me',
-        resource: {
-          // Replace with `projects/${PROJECT_ID}/topics/${TOPIC_NAME}`
-          topicName: 'projects/app-pruebas-972aa/topics/myTopic',
-          labelIds: ['INBOX'],
-        }
-      });
-      console.log(res);
-      return res;
-    } catch (error) {
-      console.log(error);
-      return error;
-    }
-
-
+  }catch(err){
+    console.log(err);
+    return err;
+  }
+  
+  return client.authorize(function (err, token) {
+    if (err) {console.log(err); return err;}
+    oAuth2Client.credentials = token;
+  
+    const gmail = google.gmail('v1');
+          
+    return gmail.users.messages.list({ userId: 'me', auth: oAuth2Client }, function(err, resp) {    
+      if (err) {console.log(err); return err;}
+      return resp;
+    });
   });
 }
+  
+
+    
+    //   const res = await gmail.users.watch({
+    //     userId: 'me',
+    //     resource: {
+    //       // Replace with `projects/${PROJECT_ID}/topics/${TOPIC_NAME}`
+    //       topicName: 'projects/app-pruebas-972aa/topics/myTopic',
+    //       labelIds: ['INBOX'],
+    //     }
+    //   });
+    //   console.log(res);
+    //   return res;
+    // } catch (error) {
+    //   console.log(error);
+    //   return error;
+    // }
+
 // });
 
 //   // firebase-adminsdk-db8la@app-pruebas-972aa.iam.gserviceaccount.com
@@ -308,4 +331,6 @@ async function listenerGmail() {
 //   });
 
 // });
+
+
 
